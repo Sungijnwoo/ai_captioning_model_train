@@ -45,3 +45,5 @@ pytest_cache/
 .DS_Store
 Thumbs.db
 weight/
+config/config.yaml
+logs/
