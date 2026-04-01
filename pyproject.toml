@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "accelerate==1.10.1",
     "huggingface-hub>=0.36.2",
+    "kagglehub>=1.0.0",
     "loguru>=0.7.3",
     "mobileclip",
     "numpy==2.0.2",
@@ -16,6 +17,7 @@ dependencies = [
     "timm",
     "torch==2.8.0",
     "torchvision==0.23.0",
+    "tqdm>=4.67.3",
     "transformers==4.57.0",
 ]
 
