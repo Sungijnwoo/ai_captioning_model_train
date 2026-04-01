@@ -6,10 +6,13 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "accelerate==1.10.1",
+    "huggingface-hub>=0.36.2",
+    "mobileclip",
     "numpy==2.0.2",
     "peft==0.17.1",
     "pillow==11.3.0",
     "ruff>=0.15.8",
+    "timm",
     "torch==2.8.0",
     "torchvision==0.23.0",
     "transformers==4.57.0",
@@ -17,3 +20,7 @@ dependencies = [
 
 [tool.ruff]
 line-length = 120
+
+[tool.uv.sources]
+mobileclip = { git = "https://github.com/apple/ml-mobileclip.git" }
+timm = { git = "https://github.com/huggingface/pytorch-image-models" }
