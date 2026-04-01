@@ -47,3 +47,5 @@ Thumbs.db
 weight/
 config/config.yaml
 logs/
+data/
+output/

@@ -1,18 +1,21 @@
 import os
+from collections import defaultdict
+from html import escape
 from typing import Tuple
 
+import kagglehub
 import open_clip
 import torch
 from huggingface_hub import hf_hub_download
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from domain.dto.Config import Config
+from torch import device
 
 
 class Util:
     @staticmethod
     def load_clip_model(config: Config) -> Tuple[torch.nn.Module, callable, callable]:
-        Util.download_clip_model(config)
         pretrained = config.clip_model_path
         name = config.clip_model.split("/")[-1]
         model_kwargs = {}
@@ -27,6 +30,7 @@ class Util:
         model.eval()
         for p in model.parameters():
             p.requires_grad = False
+
         return model, preprocess_train, preprocess_val
 
     @staticmethod
@@ -44,14 +48,14 @@ class Util:
 
     @staticmethod
     def download_clip_model(config: Config):
-        if not os.path.exists(config.clip_model_path):
-            model_id = config.clip_model
-            model_name = config.clip_model_path.split("/")[-1]
-            local_folder_path = os.path.dirname(config.clip_model_path)
+        model_id = config.clip_model
+        model_name = config.clip_model_path.split("/")[-1]
+        local_folder_path = os.path.dirname(config.clip_model_path)
 
-            hf_hub_download(
-                repo_id=model_id,
-                filename=model_name,
-                local_dir=local_folder_path,
-                local_dir_use_symlinks=False,
-            )
+        hf_hub_download(
+            repo_id=model_id,
+            filename=model_name,
+            local_dir=local_folder_path,
+            local_dir_use_symlinks=False,
+        )
+

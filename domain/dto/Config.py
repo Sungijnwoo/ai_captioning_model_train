@@ -8,10 +8,14 @@ class Config:
     clip_model: str
     clip_model_path: str
     llm_model: str
+    image_path: str
+    text_path: str
     project_multi_rate: int
     batch_size: int
+    num_worker: int
     max_text_length: int
     align_epochs: int
+    align_temperature: float
     caption_epochs: int
     align_lr: float
     caption_lr: float
