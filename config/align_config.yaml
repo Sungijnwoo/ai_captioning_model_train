@@ -2,11 +2,11 @@ clip_model_id: apple/MobileCLIP-B
 clip_model_path: weight/apple-mobileclip/mobileclip_b.pt
 llm_model_id: HuggingFaceTB/SmolLM2-135M-Instruct
 project_multi_rate: 4
-image_path: data/complex/Flicker8k_Dataset
-text_path: data/complex/Flickr8k.token.txt
-train_split_path: data/complex/Flickr_8k.trainImages.txt
-val_split_path: data/complex/Flickr_8k.devImages.txt
-test_split_path: data/complex/Flickr_8k.testImages.txt
+image_path: data/Flicker8k_Dataset
+text_path: data/Flickr8k.token.txt
+train_split_path: data/Flickr_8k.trainImages.txt
+val_split_path: data/Flickr_8k.devImages.txt
+test_split_path: data/Flickr_8k.testImages.txt
 batch_size: 8
 num_worker: 4
 max_text_length: 48

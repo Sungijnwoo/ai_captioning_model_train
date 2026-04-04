@@ -1,4 +1,5 @@
 import os
+import argparse
 
 from domain.dto.AlignConfig import AlignConfig
 from trainer.AlignTrainer import AlignTrainer
@@ -21,4 +22,8 @@ def train(config_path: str):
 
 
 if __name__ == "__main__":
-    train("config/align_config.yaml")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default="config/align_config.yaml")
+
+    args = parser.parse_args()
+    train(args.config)

@@ -1,4 +1,5 @@
 import os
+import argparse
 
 from domain.dto.CaptionConfig import CaptionConfig
 from trainer.CaptionTrainer import CaptionTrainer
@@ -21,4 +22,8 @@ def train(config_path: str):
 
 
 if __name__ == "__main__":
-    train("config/caption_config.yaml")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default="config/caption_config.yaml")
+
+    args = parser.parse_args()
+    train(args.config)

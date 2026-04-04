@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 
 from domain.dto.CaptionConfig import CaptionConfig
 from domain.dto.TestConfig import TestConfig
@@ -28,4 +29,8 @@ def test(config_path: str):
 
 
 if __name__ == "__main__":
-    test("config/test_config.yaml")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', default="config/test_config.yaml")
+
+    args = parser.parse_args()
+    test(args.config)
