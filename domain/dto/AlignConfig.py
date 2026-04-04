@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -9,16 +10,20 @@ class AlignConfig:
     clip_model_id: str
     clip_model_path: str
     llm_model_id: str
-    project_multi_rate: int | None
+    project_multi_rate: Optional[int]
     image_path: str
     text_path: str
-    batch_size: int
-    num_worker: int
-    max_text_length: int
-    align_epochs: int
-    align_lr: float
-    align_temperature: float
-    output_dir: str
+    train_split_path: Optional[str] = None
+    val_split_path: Optional[str] = None
+    test_split_path: Optional[str] = None
+    batch_size: int = 8
+    num_worker: int = 4
+    max_text_length: int = 48
+    align_epochs: int = 1
+    align_lr: float = 1.0e-4
+    align_temperature: float = 0.07
+    early_stop_patience: int = 0
+    output_dir: str = "output/align"
 
     @staticmethod
     def load_config(path: str) -> "AlignConfig":

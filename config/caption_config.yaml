@@ -1,6 +1,12 @@
 project_model_dir: "output/align/26_04_02_14_49_54"
-caption_epochs: 1
+caption_epochs: 3
 caption_lr: 1.0e-4
+early_stop_patience: 0
 batch_size: 8
 num_worker: 4
 output_dir: output/caption
+image_path: data/complex/Flicker8k_Dataset
+text_path: null
+train_split_path: null
+val_split_path: null
+test_split_path: null

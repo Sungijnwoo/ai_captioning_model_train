@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import yaml
 
@@ -8,9 +8,12 @@ import yaml
 @dataclass
 class TestConfig:
     model_dir: str
-    image_path: str | None
+    image_path: Optional[str]
+    eval_image_path: Optional[str]
+    eval_text_path: Optional[str]
+    eval_split_path: Optional[str]
     max_new_tokens: int
-    limit: int | None
+    limit: Optional[int]
     output_path: str
 
     def __init__(self, data: Dict):

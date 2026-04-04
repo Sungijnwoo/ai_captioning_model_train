@@ -28,11 +28,16 @@ class Util:
         return model, preprocess_train, preprocess_val
 
     @staticmethod
-    def load_llm_model(llm_model_id: str) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
+    def load_llm_model(llm_model_id: str, is_freeze: bool = True) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         llm_model = AutoModelForCausalLM.from_pretrained(llm_model_id)
-        llm_model.eval()
-        for p in llm_model.parameters():
-            p.requires_grad = False
+        if is_freeze:
+            llm_model.eval()
+            for p in llm_model.parameters():
+                p.requires_grad = False
+        else:
+            llm_model.train()
+            for p in llm_model.parameters():
+                p.requires_grad = True
 
         llm_tokenizer = AutoTokenizer.from_pretrained(llm_model_id)
         if llm_tokenizer.pad_token is None:

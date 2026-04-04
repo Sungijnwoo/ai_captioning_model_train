@@ -1,4 +1,5 @@
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +27,7 @@ class AlignTrainer:
         self.clip_model, self.clip_preprocess_train, self.clip_preprocess_val = Util.load_clip_model(
             self.config.clip_model_path, self.config.clip_model_id
         )
-        self.llm_model, self.llm_tokenizer = Util.load_llm_model(self.config.llm_model_id)
+        self.llm_model, self.llm_tokenizer = Util.load_llm_model(self.config.llm_model_id, is_freeze=True)
 
         # Dim 구하기
         with torch.no_grad():
@@ -39,11 +40,30 @@ class AlignTrainer:
         self.logger.info(f"Projector 모델 세팅 완료 {clip_dim} -> {llm_dim}")
 
         # 데이터 세팅
-        dataset = Flickr8kCaptionDataset(align_config.image_path, align_config.text_path, 45)
+        train_dataset = Flickr8kCaptionDataset(
+            align_config.image_path,
+            align_config.text_path,
+            45,
+            split_path=align_config.train_split_path,
+        )
+        val_dataset = Flickr8kCaptionDataset(
+            align_config.image_path,
+            align_config.text_path,
+            45,
+            split_path=align_config.val_split_path,
+        )
         self.train_loader = DataLoader(
-            dataset,
+            train_dataset,
             batch_size=align_config.batch_size,
             shuffle=True,
+            num_workers=align_config.num_worker,
+            collate_fn=Flickr8kCaptionDataset.collate_fn,
+            pin_memory=torch.cuda.is_available(),
+        )
+        self.val_loader = DataLoader(
+            val_dataset,
+            batch_size=align_config.batch_size,
+            shuffle=False,
             num_workers=align_config.num_worker,
             collate_fn=Flickr8kCaptionDataset.collate_fn,
             pin_memory=torch.cuda.is_available(),
@@ -51,8 +71,8 @@ class AlignTrainer:
         self.logger.info("데이터 세팅 완료")
 
         self.optim = torch.optim.AdamW(self.projector.parameters(), lr=align_config.align_lr, weight_decay=0.01)
-        self.projector, self.optim, self.train_loader = self.accelerator.prepare(
-            self.projector, self.optim, self.train_loader
+        self.projector, self.optim, self.train_loader, self.val_loader = self.accelerator.prepare(
+            self.projector, self.optim, self.train_loader, self.val_loader
         )
         self.logger.info("학습 세팅 완료")
 
@@ -91,49 +111,106 @@ class AlignTrainer:
         loss_t = F.cross_entropy(logits.T, targets)
         return (loss_i + loss_t) / 2
 
-    def train(self):
-        now = datetime.now()
-        formatted = now.strftime("%y_%m_%d_%H_%M_%S")
-        out_dir = Path(self.config.output_dir) / formatted
-        out_dir.mkdir(parents=True, exist_ok=True)
+    def __compute_loss(self, batch: dict, preprocess: callable) -> torch.Tensor:
+        pixels = torch.stack([preprocess(im) for im in batch["images"]]).to(self.device)
+        with torch.no_grad():
+            img_raw = self.clip_model.encode_image(pixels)
 
-        self.projector.train()
-        global_step = 0
+        z_img = self.projector(img_raw)
+        z_txt = self.__encode_text_pooled(batch["captions"])
+        return self.__contrastive_clip_llm_loss(z_img, z_txt, temperature=self.config.align_temperature)
+
+    @torch.no_grad()
+    def __validate(self) -> float:
+        self.projector.eval()
         losses: list[float] = []
 
-        for epoch in range(self.config.align_epochs):
-            pbar = tqdm(
-                self.train_loader,
-                desc=f"align epoch {epoch + 1}/{self.config.align_epochs}",
-                disable=not self.accelerator.is_local_main_process,
-            )
-            for batch in pbar:
-                pixels = torch.stack([self.clip_preprocess_train(im) for im in batch["images"]]).to(self.device)
-                with torch.no_grad():
-                    img_raw = self.clip_model.encode_image(pixels)
+        for batch in self.val_loader:
+            loss = self.__compute_loss(batch, self.clip_preprocess_val)
+            loss_f = float(self.accelerator.gather(loss.detach().unsqueeze(0)).mean())
+            losses.append(loss_f)
 
-                z_img = self.projector(img_raw)
-                z_txt = self.__encode_text_pooled(batch["captions"])
+        self.projector.train()
+        return sum(losses) / max(1, len(losses))
 
-                loss = self.__contrastive_clip_llm_loss(z_img, z_txt, temperature=self.config.align_temperature)
-                self.accelerator.backward(loss)
-                self.optim.step()
-                self.optim.zero_grad()
+    def train(self):
+        formatted = datetime.now().strftime("%y_%m_%d_%H_%M_%S")
+        out_dir = Path(self.config.output_dir) / formatted
+        out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.projector.train()
+            global_step = 0
+            losses: list[float] = []
+            val_losses: list[float] = []
+            best_val_loss = float("inf")
+            best_epoch = 0
+            epochs_without_improvement = 0
+            stopped_early = False
 
-                loss_f = float(self.accelerator.gather(loss.detach().unsqueeze(0)).mean())
-                losses.append(loss_f)
-                global_step += 1
-                pbar.set_postfix(loss=f"{loss_f:.03f}")
-
-        if self.accelerator.is_main_process:
-            self.config.save(out_dir / "align_config.yaml")
-            torch.save(self.accelerator.unwrap_model(self.projector).state_dict(), out_dir / "projector.pt")
-            with (out_dir / "align_log.json").open("w", encoding="utf-8") as f:
-                json.dump(
-                    {"steps": global_step, "mean_loss": sum(losses) / max(1, len(losses))},
-                    f,
-                    indent=2,
+            for epoch in range(self.config.align_epochs):
+                pbar = tqdm(
+                    self.train_loader,
+                    desc=f"align epoch {epoch + 1}/{self.config.align_epochs}",
+                    disable=not self.accelerator.is_local_main_process,
                 )
-            self.logger.info(f"{out_dir}에 projector 모델 저장 완료")
+                for batch in pbar:
+                    loss = self.__compute_loss(batch, self.clip_preprocess_train)
+                    self.accelerator.backward(loss)
+                    self.optim.step()
+                    self.optim.zero_grad()
 
-        self.accelerator.wait_for_everyone()
+                    loss_f = float(self.accelerator.gather(loss.detach().unsqueeze(0)).mean())
+                    losses.append(loss_f)
+                    global_step += 1
+                    pbar.set_postfix(loss=f"{loss_f:.03f}")
+
+                val_loss = self.__validate()
+                val_losses.append(val_loss)
+                self.logger.info(f"align epoch {epoch + 1} validation loss: {val_loss:.4f}")
+
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_epoch = epoch + 1
+                    epochs_without_improvement = 0
+
+                    if self.accelerator.is_main_process:
+                        self.config.save(out_dir / "align_config.yaml")
+                        torch.save(self.accelerator.unwrap_model(self.projector).state_dict(), out_dir / "projector.pt")
+                        self.logger.info(
+                            f"align best 모델 저장 완료: epoch={best_epoch}, val_loss={best_val_loss:.4f}"
+                        )
+                else:
+                    epochs_without_improvement += 1
+
+                if self.config.early_stop_patience > 0 and epochs_without_improvement >= self.config.early_stop_patience:
+                    stopped_early = True
+                    self.logger.info(
+                        f"align early stopping at epoch {epoch + 1} (best_epoch={best_epoch}, patience={self.config.early_stop_patience})"
+                    )
+                    break
+
+            if self.accelerator.is_main_process:
+                torch.save(self.accelerator.unwrap_model(self.projector).state_dict(), out_dir / "last_projector.pt")
+                with (out_dir / "align_log.json").open("w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "epochs_completed": len(val_losses),
+                            "steps": global_step,
+                            "mean_loss": sum(losses) / max(1, len(losses)),
+                            "mean_val_loss": sum(val_losses) / max(1, len(val_losses)),
+                            "last_val_loss": val_losses[-1] if val_losses else None,
+                            "best_val_loss": best_val_loss if val_losses else None,
+                            "best_epoch": best_epoch if val_losses else None,
+                            "stopped_early": stopped_early,
+                        },
+                        f,
+                        indent=2,
+                    )
+                self.logger.info(f"{out_dir}에 align 모델 저장 완료")
+
+            self.accelerator.wait_for_everyone()
+        except BaseException:
+            if self.accelerator.is_main_process and out_dir.exists():
+                shutil.rmtree(out_dir, ignore_errors=True)
+                self.logger.info(f"학습 중단으로 미완료 출력 폴더 삭제: {out_dir}")
+            raise

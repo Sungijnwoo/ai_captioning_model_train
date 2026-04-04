@@ -1,5 +1,8 @@
 model_dir: output/caption/caption
 image_path: null
+eval_image_path: data/complex/Flicker8k_Dataset
+eval_text_path: data/complex/Flickr8k.token.txt
+eval_split_path: data/complex/Flickr_8k.testImages.txt
 max_new_tokens: 32
 limit: 100
 output_path: output/caption/caption/eval_results.json

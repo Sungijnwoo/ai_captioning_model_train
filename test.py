@@ -1,7 +1,7 @@
 import json
 import math
 import os
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -9,6 +9,7 @@ import torch
 from PIL import Image
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from dataset.Flickr8kCaptionDataset import Flickr8kCaptionDataset
 from domain.dto.CaptionConfig import CaptionConfig
 from domain.dto.TestConfig import TestConfig
 from model.ClipToLlmProjector import ClipToLlmProjector
@@ -86,8 +87,19 @@ class CaptionTester:
 
         return self.llm_tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
-    def evaluate(self, limit: Optional[int] = None, max_new_tokens: int = 32) -> Dict:
-        image_to_refs = self.__load_references(self.config.text_path)
+    def evaluate(
+        self,
+        limit: Optional[int] = None,
+        max_new_tokens: int = 32,
+        image_root: Optional[str] = None,
+        token_path: Optional[str] = None,
+        split_path: Optional[str] = None,
+    ) -> Dict:
+        eval_image_root = image_root or self.config.image_path
+        eval_token_path = token_path or self.config.text_path
+        eval_split_path = split_path or self.config.test_split_path
+
+        image_to_refs = self.__load_references(eval_token_path, eval_split_path)
         image_names = sorted(image_to_refs.keys())
         if limit is not None:
             image_names = image_names[:limit]
@@ -97,7 +109,7 @@ class CaptionTester:
         reference_tokens: List[List[List[str]]] = []
 
         for image_name in image_names:
-            image_path = str(Path(self.config.image_path) / image_name)
+            image_path = str(Path(eval_image_root) / image_name)
             generated = self.generate_caption(image_path, max_new_tokens=max_new_tokens)
             references = image_to_refs[image_name]
 
@@ -122,18 +134,9 @@ class CaptionTester:
         return {"metrics": metrics, "predictions": predictions}
 
     @staticmethod
-    def __load_references(token_path: str) -> Dict[str, List[str]]:
-        image_to_refs: Dict[str, List[str]] = defaultdict(list)
-        with open(token_path, encoding="utf-8") as f:
-            lines = f.readlines()
-
-        for line in lines[1:]:
-            split_list = line.rstrip("\n").split(",")
-            image_name = split_list[0].strip()
-            caption = ",".join(split_list[1:]).strip()
-            image_to_refs[image_name].append(caption)
-
-        return image_to_refs
+    def __load_references(token_path: str, split_path: Optional[str]) -> Dict[str, List[str]]:
+        allowed_images = Flickr8kCaptionDataset.load_image_names(split_path)
+        return Flickr8kCaptionDataset.load_grouped_captions(token_path, allowed_images)
 
     @staticmethod
     def __tokenize_text(text: str) -> List[str]:
@@ -244,7 +247,13 @@ def test(config_path: str):
         print(json.dumps({"image": config.image_path, "caption": caption}, indent=2, ensure_ascii=False))
         return
 
-    result = tester.evaluate(limit=config.limit, max_new_tokens=config.max_new_tokens)
+    result = tester.evaluate(
+        limit=config.limit,
+        max_new_tokens=config.max_new_tokens,
+        image_root=config.eval_image_path,
+        token_path=config.eval_text_path,
+        split_path=config.eval_split_path,
+    )
     output_path = Path(config.output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
