@@ -15,7 +15,7 @@ class Flickr8kCaptionDataset(Dataset):
             split_list = line.split(",")
             image_name = split_list[0]
             caption = ",".join(split_list[1:])
-        self.items.append((image_name, caption))
+            self.items.append((image_name, caption))
 
     def __getitem__(self, idx: int) -> dict:
         path, caption = self.items[idx]

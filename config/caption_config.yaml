@@ -1,0 +1,6 @@
+project_model_dir: "output/align/26_04_02_14_49_54"
+caption_epochs: 1
+caption_lr: 1.0e-4
+batch_size: 8
+num_worker: 4
+output_dir: output/caption

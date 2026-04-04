@@ -1,0 +1,13 @@
+clip_model_id: apple/MobileCLIP-B
+clip_model_path: weight/apple-mobileclip/mobileclip_b.pt
+llm_model_id: HuggingFaceTB/SmolLM2-135M-Instruct
+project_multi_rate: 4
+image_path: data/Images
+text_path: data/captions.txt
+batch_size: 8
+num_worker: 4
+max_text_length: 48
+align_epochs: 1
+align_lr: 1.0e-4
+align_temperature: 0.07
+output_dir: output/align
