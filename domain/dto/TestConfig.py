@@ -8,12 +8,13 @@ import yaml
 @dataclass
 class TestConfig:
     model_dir: str
+    llm_name: str
+    projector_name: str
     image_path: Optional[str]
     eval_image_path: Optional[str]
     eval_text_path: Optional[str]
     eval_split_path: Optional[str]
     max_new_tokens: int
-    limit: Optional[int]
     output_path: str
 
     def __init__(self, data: Dict):
