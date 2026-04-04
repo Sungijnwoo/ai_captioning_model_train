@@ -1,0 +1,5 @@
+model_dir: output/caption/caption
+image_path: null
+max_new_tokens: 32
+limit: 100
+output_path: output/caption/caption/eval_results.json
