@@ -213,13 +213,11 @@ class CaptionTester:
             generated = self.generate_caption(image_path, max_new_tokens=max_new_tokens)
             references = image_to_refs[image_name]
 
-            predictions.append(
-                {
-                    "image": image_name,
-                    "prediction": generated,
-                    "references": references,
-                }
-            )
+            predictions.append({
+                "image": image_name,
+                "prediction": generated,
+                "references": references,
+            })
             hypothesis_tokens.append(self.__tokenize_text(generated))
             reference_tokens.append([self.__tokenize_text(ref) for ref in references])
 

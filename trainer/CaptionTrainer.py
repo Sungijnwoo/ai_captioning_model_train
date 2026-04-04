@@ -1,6 +1,6 @@
-from datetime import datetime
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -26,9 +26,7 @@ class CaptionTrainer:
         self.clip_model, self.clip_preprocess_train, self.clip_preprocess_val = Util.load_clip_model(
             self.caption_config.clip_model_path, self.caption_config.clip_model_id
         )
-        self.llm_model, self.llm_tokenizer = Util.load_llm_model(
-            self.caption_config.llm_model_id, is_freeze=False
-        )
+        self.llm_model, self.llm_tokenizer = Util.load_llm_model(self.caption_config.llm_model_id, is_freeze=False)
 
         with torch.no_grad():
             dummy = torch.zeros(1, 3, 224, 224)
@@ -116,9 +114,7 @@ class CaptionTrainer:
 
         image_embeds = self.projector(img_raw)
         input_ids, attention_mask = self.__tokenize_captions(batch["captions"])
-        inputs_embeds, full_attention_mask, labels = self.__build_inputs(
-            image_embeds, input_ids, attention_mask
-        )
+        inputs_embeds, full_attention_mask, labels = self.__build_inputs(image_embeds, input_ids, attention_mask)
 
         outputs = self.llm_model(
             inputs_embeds=inputs_embeds,

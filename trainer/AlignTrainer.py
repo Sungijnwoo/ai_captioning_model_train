@@ -176,13 +176,14 @@ class AlignTrainer:
                     if self.accelerator.is_main_process:
                         self.config.save(out_dir / "align_config.yaml")
                         torch.save(self.accelerator.unwrap_model(self.projector).state_dict(), out_dir / "projector.pt")
-                        self.logger.info(
-                            f"align best 모델 저장 완료: epoch={best_epoch}, val_loss={best_val_loss:.4f}"
-                        )
+                        self.logger.info(f"align best 모델 저장 완료: epoch={best_epoch}, val_loss={best_val_loss:.4f}")
                 else:
                     epochs_without_improvement += 1
 
-                if self.config.early_stop_patience > 0 and epochs_without_improvement >= self.config.early_stop_patience:
+                if (
+                    self.config.early_stop_patience > 0
+                    and epochs_without_improvement >= self.config.early_stop_patience
+                ):
                     stopped_early = True
                     self.logger.info(
                         f"align early stopping at epoch {epoch + 1} (best_epoch={best_epoch}, patience={self.config.early_stop_patience})"
